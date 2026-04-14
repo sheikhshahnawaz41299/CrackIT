@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { App as CapApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
-import { Share } from '@capacitor/share';
+// REMOVED unused import: Share
 
 // ── GLOBAL NATIVE BACK BUTTON STACK ──────────────────────────────────────
 const backButtonListeners = [];
@@ -11,7 +11,7 @@ const removeBackListener = (fn) => {
   if (idx !== -1) backButtonListeners.splice(idx, 1);
 };
 
-// ── CONSTANTS & COLORS ───────────────────────────────────────────────────
+// ── CONSTANTS & COLORS (ENHANCED) ───────────────────────────────────────
 const COLORS = {
   bg: "#0f1117", card: "#181c27", cardBorder: "#252a3a",
   accent: "#f5a623", accentSoft: "#f5a62322",
@@ -19,6 +19,8 @@ const COLORS = {
   green: "#2ecc71", greenSoft: "#2ecc7122",
   red: "#e74c3c", cyan: "#00b4d8",
   text: "#e8eaf0", muted: "#7a8099", highlight: "#ffffff",
+  // NEW: hover/active states
+  overlay: "rgba(0,0,0,0.6)",
 };
 
 const EXAM_MODES = {
@@ -40,13 +42,20 @@ const DEFAULT_EXAMS = [
   { id: "1775399663383", name: "SSC CGL T1", date: "2026-06-01", icon: "📌", color: "#4f8ef7" }
 ];
 
-
 // ── UTILITY HELPERS & GENERIC TREE LOGIC ─────────────────────────────────
 function uid() { return Date.now() + Math.random(); }
 
 function daysLeft(dateStr) {
   const today = new Date(); today.setHours(0,0,0,0);
   return Math.ceil((new Date(dateStr) - today) / 86400000);
+}
+
+// FIXED: auto-add https to URLs if missing
+function ensureValidUrl(url) {
+  if (!url) return '';
+  const trimmed = url.trim();
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return trimmed;
+  return 'https://' + trimmed;
 }
 
 const migrateToTree = (oldData) => {
@@ -59,7 +68,6 @@ const migrateToTree = (oldData) => {
     if (node.items) children.push(...node.items.map(i => process(i, 'item')));
     if (node.children) children.push(...node.children.map(c => process(c, c.nodeType || 'item')));
 
-    // Auto-migrate old string ytLink into new links array
     let links = node.links || [];
     if (node.ytLink && links.length === 0) links = [node.ytLink];
 
@@ -132,10 +140,11 @@ const getReviseItems = (tree, path = []) => {
   return items;
 };
 
-// ── UI COMPONENTS ────────────────────────────────────────────────────────
+// ── UI COMPONENTS (ENHANCED WITH HOVER & TRANSITIONS) ────────────────────
 function ProgressRing({ pct, size = 48, stroke = 4, color = COLORS.accent }) {
   const r = (size - stroke) / 2;
-  const circ = 2 * Math.PI * r; const dash = (pct / 100) * circ;
+  const circ = 2 * Math.PI * r;
+  const dash = (pct / 100) * circ;
   return (
     <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
       <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={COLORS.cardBorder} strokeWidth={stroke} />
@@ -148,7 +157,8 @@ function CountdownRing({ days, size = 84, stroke = 7 }) {
   const r = (size - stroke) / 2;
   const circ = 2 * Math.PI * r;
   const maxDays = 180;
-  const pct = Math.min(100, Math.max(0, (days / maxDays) * 100)); const dash = (pct / 100) * circ;
+  const pct = Math.min(100, Math.max(0, (days / maxDays) * 100));
+  const dash = (pct / 100) * circ;
   const displayDays = days < 0 ? 0 : days;
   return (
     <div style={{ position: "relative", width: size, height: size, margin: "0 auto" }}>
@@ -165,14 +175,21 @@ function CountdownRing({ days, size = 84, stroke = 7 }) {
 }
 
 function AddRow({ placeholder, onAdd, onCancel }) {
-  const [val, setVal] = useState(""); const ref = useRef();
+  const [val, setVal] = useState("");
+  const ref = useRef();
   useEffect(() => { ref.current?.focus(); }, []);
   const submit = () => { if (val.trim()) { onAdd(val.trim()); } else onCancel(); };
   return (
-    <div style={{ display: "flex", gap: 8, padding: "8px 0" }}>
-      <input ref={ref} value={val} placeholder={placeholder} onChange={e => setVal(e.target.value)} onKeyDown={e => { if (e.key === "Enter") submit(); if (e.key === "Escape") onCancel(); }}
-        style={{ flex: 1, background: `${COLORS.accent}12`, border: `1.5px solid ${COLORS.accent}60`, borderRadius: 8, padding: "7px 10px", color: COLORS.text, fontSize: 13, fontFamily: "inherit", outline: "none" }} />
-      <button onClick={submit} style={{ background: COLORS.accent, color: "#000", border: "none", borderRadius: 8, padding: "6px 12px", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>Add</button>
+    <div style={{ display: "flex", gap: 8, padding: "8px 0", animation: "fadeIn 0.2s ease" }}>
+      <input
+        ref={ref}
+        value={val}
+        placeholder={placeholder}
+        onChange={e => setVal(e.target.value)}
+        onKeyDown={e => { if (e.key === "Enter") submit(); if (e.key === "Escape") onCancel(); }}
+        style={{ flex: 1, background: `${COLORS.accent}12`, border: `1.5px solid ${COLORS.accent}60`, borderRadius: 8, padding: "7px 10px", color: COLORS.text, fontSize: 13, fontFamily: "inherit", outline: "none", transition: "border 0.2s" }}
+      />
+      <button onClick={submit} style={{ background: COLORS.accent, color: "#000", border: "none", borderRadius: 8, padding: "6px 12px", fontWeight: 700, fontSize: 12, cursor: "pointer", transition: "transform 0.1s", active: { transform: "scale(0.96)" } }}>Add</button>
       <button onClick={onCancel} style={{ background: "transparent", color: COLORS.muted, border: "none", fontSize: 20, cursor: "pointer", lineHeight: 1 }}>×</button>
     </div>
   );
@@ -184,27 +201,37 @@ function BreadCrumb({ crumbs, setNav }) {
       {crumbs.map((c, i) => (
         <div key={i} style={{ display:"flex", alignItems:"center", gap:4, flexShrink:0 }}>
           {i > 0 && <span style={{ color:COLORS.muted, fontSize:12 }}>›</span>}
-          <button onClick={() => setNav(c.nav)} style={{ background: i===crumbs.length-1 ? COLORS.accentSoft : "transparent", border: i===crumbs.length-1 ? `1px solid ${COLORS.accent}40` : "none", color: i===crumbs.length-1 ? COLORS.accent : COLORS.muted, borderRadius:8, padding:"4px 10px", fontSize:12, fontWeight: i===crumbs.length-1?700:500, cursor:"pointer", whiteSpace:"nowrap" }}>{c.label}</button>
+          <button
+            onClick={() => setNav(c.nav)}
+            style={{ background: i===crumbs.length-1 ? COLORS.accentSoft : "transparent", border: i===crumbs.length-1 ? `1px solid ${COLORS.accent}40` : "none", color: i===crumbs.length-1 ? COLORS.accent : COLORS.muted, borderRadius:8, padding:"4px 10px", fontSize:12, fontWeight: i===crumbs.length-1?700:500, cursor:"pointer", whiteSpace:"nowrap", transition: "all 0.1s" }}
+          >{c.label}</button>
         </div>
       ))}
     </div>
   );
 }
 
-function ActionBtn({ icon, onClick, disabled }) {
+function ActionBtn({ icon, onClick, disabled, label }) {
   return (
-    <button onClick={(e) => { e.stopPropagation(); onClick(); }} disabled={disabled}
-      style={{ background: "transparent", border: "none", color: disabled ? COLORS.cardBorder : COLORS.muted, fontSize: 18, cursor: disabled ? "default" : "pointer", padding: "6px 8px", lineHeight: 1 }}>
+    <button
+      onClick={(e) => { e.stopPropagation(); onClick(); }}
+      disabled={disabled}
+      aria-label={label}
+      style={{ background: "transparent", border: "none", color: disabled ? COLORS.cardBorder : COLORS.muted, fontSize: 18, cursor: disabled ? "default" : "pointer", padding: "6px 8px", lineHeight: 1, transition: "color 0.1s", hover: disabled ? {} : { color: COLORS.text } }}
+    >
       {icon}
     </button>
   );
 }
 
-// ── MODALS ───────────────────────────────────────────────────────────────
+// ── MODALS (IMPROVED ANIMATION & FEEDBACK) ───────────────────────────────
 function SettingsModal({ onClose, dataStr, onImport }) {
   const [manualPaste, setManualPaste] = useState(false);
   const [pasteText, setPasteText] = useState("");
+  const [toast, setToast] = useState(null);
   const fileInputRef = useRef(null);
+
+  const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2000); };
 
   const handleFileExport = () => {
     const blob = new Blob([dataStr], { type: "application/json" });
@@ -216,31 +243,20 @@ function SettingsModal({ onClose, dataStr, onImport }) {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+    showToast("✅ Backup saved");
   };
 
   const handleFileImport = (e) => {
     const file = e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (event) => {
-      onImport(event.target.result);
-    };
+    reader.onload = (event) => { onImport(event.target.result); showToast("📥 Imported"); };
     reader.readAsText(file);
   };
 
-  const handleNativeShare = async () => {
-    if (navigator.share) {
-      try { await navigator.share({ title: 'CrackIt Backup', text: dataStr });
-      } catch (e) { /* user cancelled */ }
-    } else {
-      alert("Native sharing not supported. Please use the Copy Backup button instead.");
-    }
-  };
-
   const handleCopy = async () => {
-    try { await navigator.clipboard.writeText(dataStr);
-      alert("✅ Data copied to clipboard!");
-    } catch (e) { alert("Failed to copy. Please manually select and copy."); }
+    try { await navigator.clipboard.writeText(dataStr); showToast("✅ Copied to clipboard"); }
+    catch (e) { alert("Failed to copy. Please manually select and copy."); }
   };
 
   const handlePasteImport = async () => {
@@ -248,20 +264,18 @@ function SettingsModal({ onClose, dataStr, onImport }) {
       let text = await navigator.clipboard.readText();
       if(!text) throw new Error("Clipboard empty");
       onImport(text);
-    } catch (e) {
-      setManualPaste(true);
-    }
+      showToast("📥 Imported from clipboard");
+    } catch (e) { setManualPaste(true); }
   };
 
   if (manualPaste) {
     return (
-      <div style={{ position:"fixed", inset:0, zIndex:999, background:"rgba(0,0,0,0.85)", display:"flex", alignItems:"center", justifyContent:"center", padding: 20 }}>
+      <div style={{ position:"fixed", inset:0, zIndex:999, background:COLORS.overlay, display:"flex", alignItems:"center", justifyContent:"center", padding: 20, animation: "fadeIn 0.2s" }}>
          <div style={{ background: COLORS.card, padding: 20, borderRadius: 20, width: "100%", maxWidth: 380, border: `1px solid ${COLORS.cardBorder}`, boxShadow: "0 10px 40px rgba(0,0,0,0.5)", display: "flex", flexDirection: "column" }}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems: "center", marginBottom: 16 }}>
                <div style={{ fontSize: 18, fontWeight: 800 }}>Paste Backup Data</div>
                <button onClick={() => setManualPaste(false)} style={{ background:"none", border:"none", color:COLORS.muted, fontSize: 28, lineHeight: 1, cursor:"pointer" }}>×</button>
             </div>
-            <div style={{ fontSize: 13, color: COLORS.muted, marginBottom: 12 }}>Paste your copied JSON backup code into the box below.</div>
             <textarea
               value={pasteText}
               onChange={(e) => setPasteText(e.target.value)}
@@ -275,27 +289,23 @@ function SettingsModal({ onClose, dataStr, onImport }) {
   }
 
   return (
-    <div style={{ position:"fixed", inset:0, zIndex:999, background:"rgba(0,0,0,0.8)", display:"flex", alignItems:"center", justifyContent:"center", padding: 20 }}>
+    <div style={{ position:"fixed", inset:0, zIndex:999, background:COLORS.overlay, display:"flex", alignItems:"center", justifyContent:"center", padding: 20, animation: "fadeIn 0.2s" }}>
        <div style={{ background: COLORS.card, padding: 24, borderRadius: 20, width: "100%", maxWidth: 340, border: `1px solid ${COLORS.cardBorder}`, boxShadow: "0 10px 40px rgba(0,0,0,0.5)" }}>
           <div style={{ display:"flex", justifyContent:"space-between", marginBottom: 24 }}>
              <div style={{ fontSize: 18, fontWeight: 800 }}>Data Management</div>
              <button onClick={onClose} style={{ background:"none", border:"none", color:COLORS.muted, fontSize: 24, lineHeight: 0.8, cursor:"pointer" }}>×</button>
           </div>
-
-          <div style={{ fontSize: 13, color: COLORS.muted, marginBottom: 12 }}>Import and Export your progress via JSON files:</div>
           <div style={{ display:"flex", gap:10, marginBottom: 24 }}>
             <button onClick={handleFileExport} style={{ flex:1, padding: 12, background: COLORS.accent, color: "#000", fontWeight: 800, borderRadius: 12, border:"none", cursor:"pointer" }}>💾 Save .json</button>
             <button onClick={() => fileInputRef.current?.click()} style={{ flex:1, padding: 12, background: "transparent", border: `2px solid ${COLORS.accent}`, color: COLORS.accent, fontWeight: 800, borderRadius: 12, cursor:"pointer" }}>📂 Load .json</button>
             <input type="file" accept=".json" ref={fileInputRef} onChange={handleFileImport} style={{ display: "none" }} />
           </div>
-
-          <div style={{ fontSize: 13, color: COLORS.muted, marginBottom: 12 }}>Fallback options (if files are blocked by Android):</div>
           <div style={{ display:"flex", gap:10, marginBottom: 12 }}>
             <button onClick={handleCopy} style={{ flex:1, padding: 12, background: COLORS.blueSoft, color: COLORS.blue, fontWeight: 800, borderRadius: 12, border:`1px solid ${COLORS.blue}40`, cursor:"pointer" }}>📋 Copy</button>
             <button onClick={handlePasteImport} style={{ flex:1, padding: 12, background: COLORS.blueSoft, color: COLORS.blue, fontWeight: 800, borderRadius: 12, border:`1px solid ${COLORS.blue}40`, cursor:"pointer" }}>📥 Paste</button>
           </div>
-          <button onClick={handleNativeShare} style={{ width: "100%", padding: 14, background: "transparent", color: COLORS.muted, fontWeight: 700, borderRadius: 12, border:`1px dashed ${COLORS.cardBorder}`, cursor:"pointer", display:"flex", justifyContent:"center", gap: 8 }}>📤 Android Share Menu</button>
        </div>
+       {toast && <div style={{ position:"fixed", bottom:30, left:"50%", transform:"translateX(-50%)", background:"#000", color:"#fff", padding:"8px 16px", borderRadius:40, fontSize:13, zIndex:1000, whiteSpace:"nowrap" }}>{toast}</div>}
     </div>
   )
 }
@@ -303,13 +313,23 @@ function SettingsModal({ onClose, dataStr, onImport }) {
 function LinkModal({ currentLinks = [], onSave, onClose, accent }) {
   const [links, setLinks] = useState([...currentLinks]);
   const [newLink, setNewLink] = useState("");
-  
-  const valid = newLink.trim() === "" || (() => { try { new URL(newLink); return true; } catch { return false; } })();
+  const [error, setError] = useState("");
+
+  // FIXED: validate with auto https
+  const isValidUrl = (url) => {
+    if (!url.trim()) return false;
+    try { new URL(ensureValidUrl(url)); return true; } catch { return false; }
+  };
+  const valid = newLink.trim() !== "" && isValidUrl(newLink);
 
   const handleAdd = () => {
-    if (valid && newLink.trim()) {
-      setLinks([...links, newLink.trim()]);
+    if (valid) {
+      const fixedUrl = ensureValidUrl(newLink.trim());
+      setLinks([...links, fixedUrl]);
       setNewLink("");
+      setError("");
+    } else {
+      setError("Please enter a valid URL (e.g., https://youtube.com/...)");
     }
   };
 
@@ -318,14 +338,12 @@ function LinkModal({ currentLinks = [], onSave, onClose, accent }) {
   };
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 999, background: "rgba(0,0,0,0.75)", display: "flex", alignItems: "flex-end", justifyContent: "center" }} onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+    <div style={{ position: "fixed", inset: 0, zIndex: 999, background: COLORS.overlay, display: "flex", alignItems: "flex-end", justifyContent: "center", animation: "slideUp 0.2s" }} onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div style={{ background: COLORS.card, borderRadius: "20px 20px 0 0", border: `1px solid ${COLORS.cardBorder}`, width: "100%", maxWidth: 430, padding: "20px 20px 36px", maxHeight: "80vh", overflowY: "auto" }}>
-        
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
           <div style={{ fontSize: 16, fontWeight: 800, color: COLORS.text }}>🔗 Resource Links</div>
           <button onClick={onClose} style={{ background: "transparent", border: "none", color: COLORS.muted, fontSize: 22, cursor: "pointer", lineHeight: 1 }}>×</button>
         </div>
-
         {links.length > 0 && (
           <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 20 }}>
             {links.map((link, idx) => (
@@ -337,22 +355,22 @@ function LinkModal({ currentLinks = [], onSave, onClose, accent }) {
             ))}
           </div>
         )}
-
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <input value={newLink} onChange={e => setNewLink(e.target.value)} placeholder="Paste new web link here..." style={{ flex: 1, boxSizing: "border-box", background: `${accent}12`, border: `1.5px solid ${valid ? accent + "60" : COLORS.red + "80"}`, borderRadius: 10, padding: "10px 12px", color: COLORS.text, fontSize: 13, fontFamily: "inherit", outline: "none" }} />
-          <button onClick={handleAdd} disabled={!valid || !newLink.trim()} style={{ background: valid && newLink.trim() ? accent : COLORS.cardBorder, color: valid && newLink.trim() ? "#000" : COLORS.muted, border: "none", borderRadius: 10, padding: "10px 16px", fontWeight: 800, fontSize: 14, cursor: valid && newLink.trim() ? "pointer" : "default" }}>Add</button>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <input value={newLink} onChange={e => { setNewLink(e.target.value); setError(""); }} placeholder="Paste URL (https://...)" style={{ flex: 1, boxSizing: "border-box", background: `${accent}12`, border: `1.5px solid ${valid ? accent + "60" : COLORS.red + "80"}`, borderRadius: 10, padding: "10px 12px", color: COLORS.text, fontSize: 13, fontFamily: "inherit", outline: "none" }} />
+            <button onClick={handleAdd} disabled={!valid} style={{ background: valid ? accent : COLORS.cardBorder, color: valid ? "#000" : COLORS.muted, border: "none", borderRadius: 10, padding: "10px 16px", fontWeight: 800, fontSize: 14, cursor: valid ? "pointer" : "default" }}>Add</button>
+          </div>
+          {error && <div style={{ fontSize: 11, color: COLORS.red, paddingLeft: 4 }}>{error}</div>}
         </div>
-
         <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
           <button onClick={() => { onSave(links); onClose(); }} style={{ flex: 1, background: accent, color: "#000", border: "none", borderRadius: 10, padding: "12px", fontWeight: 800, fontSize: 14, cursor: "pointer" }}>Save {links.length > 0 ? "Changes" : ""}</button>
         </div>
-
       </div>
     </div>
   );
 }
 
-// ── TABS ─────────────────────────────────────────────────────────────────
+// ── TABS (MINOR STYLE TWEAKS) ───────────────────────────────────────────
 function ExamCountdowns({ exams, setExams }) {
   const [editingId, setEditingId] = useState(null);
   const [addingNew, setAddingNew] = useState(false);
@@ -373,7 +391,6 @@ function ExamCountdowns({ exams, setExams }) {
         <div style={{ fontSize: 16, fontWeight: 800, color: COLORS.text }}>⏳ Exam Countdown</div>
         <button onClick={() => setAddingNew(a => !a)} style={{ background: addingNew ? `${COLORS.red}22` : COLORS.accentSoft, border: `1px solid ${addingNew ? COLORS.red + "50" : COLORS.accent + "40"}`, color: addingNew ? COLORS.red : COLORS.accent, borderRadius: 20, padding: "5px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>{addingNew ? "✕ Cancel" : "+ Add Exam"}</button>
       </div>
-
       {addingNew && (
         <div style={{ margin: "0 20px 16px", background: COLORS.card, border: `1px solid ${COLORS.accent}40`, borderRadius: 16, padding: "14px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
           <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Exam name (e.g. SSC MTS)" style={{ background: `${COLORS.accent}12`, border: `1px solid ${COLORS.accent}40`, borderRadius: 10, padding: "10px 12px", color: COLORS.text, fontSize: 14, fontFamily: "inherit", outline: "none", width: "100%", boxSizing: "border-box" }} />
@@ -383,7 +400,6 @@ function ExamCountdowns({ exams, setExams }) {
           </div>
         </div>
       )}
-
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, padding: "0 20px" }}>
         {[...exams].sort((a,b)=>daysLeft(a.date)-daysLeft(b.date)).map(exam => {
           const days = daysLeft(exam.date);
@@ -424,7 +440,6 @@ function HomeTab({ syllabus, exams, setExams }) {
         <h1 style={{ margin: 0, fontSize: 32, fontWeight: 900, color: COLORS.text }}>Dashboard</h1>
         <p style={{ margin: "4px 0 0 0", fontSize: 15, color: COLORS.muted, fontWeight: 500 }}>Ready to crush your goals today?</p>
       </div>
-
       <div style={{ margin: "0 20px 32px", background: COLORS.card, border: `1px solid ${COLORS.cardBorder}`, borderRadius: 20, padding: 20, boxShadow: "0 6px 20px rgba(0,0,0,0.2)" }}>
         <div style={{ fontSize: 16, fontWeight: 800, color: COLORS.text, marginBottom: 16 }}>Syllabus Progress</div>
         {syllabus.map(s => {
@@ -482,7 +497,8 @@ function SyllabusTab({ syllabus, setSyllabus, accent }) {
   };
 
   const toggleItem = (id) => setSyllabus(prev => updateNode(prev, id, n => ({...n, done: !n.done})));
-  const toggleRevise = (id) => setSyllabus(prev => updateNode(prev, id, n => ({...n, revise: !n.revise, reviseDate: !n.revise ? new Date(Date.now()+86400000*2).toISOString().slice(0,10) : null})));
+  // FIXED: reviseDate = tomorrow instead of 2 days later
+  const toggleRevise = (id) => setSyllabus(prev => updateNode(prev, id, n => ({...n, revise: !n.revise, reviseDate: !n.revise ? new Date(Date.now() + 86400000).toISOString().slice(0,10) : null})));
   const setReviseDate = (id, date) => setSyllabus(prev => updateNode(prev, id, n => ({...n, reviseDate: date})));
   const setLinks = (id, newLinks) => setSyllabus(prev => updateNode(prev, id, n => ({...n, links: newLinks})));
   const renameCurrentNode = (id, name) => setSyllabus(prev => updateNode(prev, id, n => ({...n, name})));
@@ -503,8 +519,8 @@ function SyllabusTab({ syllabus, setSyllabus, accent }) {
   }
 
   const progColor = p => p >= 70 ? COLORS.green : p >= 35 ? COLORS.accent : COLORS.blue;
-  const rowCard = (borderColor) => ({ background: COLORS.card, border: `1px solid ${borderColor || COLORS.cardBorder}`, borderRadius: 13, marginBottom: 8, overflow: "hidden" });
-  const btnStyle = { flex: 1, background:"transparent", border:`1.5px dashed ${COLORS.cardBorder}`, color:COLORS.muted, borderRadius:10, padding:"10px 0", fontSize:13, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:6, fontWeight:600 };
+  const rowCard = (borderColor) => ({ background: COLORS.card, border: `1px solid ${borderColor || COLORS.cardBorder}`, borderRadius: 13, marginBottom: 8, overflow: "hidden", transition: "transform 0.1s, box-shadow 0.2s", hover: { transform: "translateY(-1px)", boxShadow: "0 4px 12px rgba(0,0,0,0.2)" } });
+  const btnStyle = { flex: 1, background:"transparent", border:`1.5px dashed ${COLORS.cardBorder}`, color:COLORS.muted, borderRadius:10, padding:"10px 0", fontSize:13, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:6, fontWeight:600, transition: "background 0.1s", hover: { background: `${COLORS.accent}10` } };
 
   const renderItemRow = (item, idx, total) => {
     const hasLinks = item.links && item.links.length > 0;
@@ -514,16 +530,16 @@ function SyllabusTab({ syllabus, setSyllabus, accent }) {
         <div key={item.id} style={{ background: COLORS.card, border:`1px solid ${COLORS.cardBorder}`, borderRadius:11, marginBottom:8, overflow:"hidden", display:"flex", alignItems:"center", padding:"11px 14px" }}>
           <span style={{ flex:1, fontSize:14, color:COLORS.text }}>{item.name}</span>
           <div style={{ display:"flex", gap:4, alignItems:"center" }}>
-            <ActionBtn icon="↑" onClick={() => moveNodeDir(item.id, -1)} disabled={idx===0}/>
-            <ActionBtn icon="↓" onClick={() => moveNodeDir(item.id, 1)} disabled={idx===total-1}/>
-            <ActionBtn icon="✎" onClick={() => promptRename(item.name, nn => renameCurrentNode(item.id,nn))} />
-            <ActionBtn icon="🗑" onClick={() => deleteNodeById(item.id)} />
+            <ActionBtn icon="↑" onClick={() => moveNodeDir(item.id, -1)} disabled={idx===0} label="Move up"/>
+            <ActionBtn icon="↓" onClick={() => moveNodeDir(item.id, 1)} disabled={idx===total-1} label="Move down"/>
+            <ActionBtn icon="✎" onClick={() => promptRename(item.name, nn => renameCurrentNode(item.id,nn))} label="Rename"/>
+            <ActionBtn icon="🗑" onClick={() => deleteNodeById(item.id)} label="Delete"/>
           </div>
         </div>
       );
     }
     return (
-      <div key={item.id} style={{ background: item.done?`${COLORS.green}08`:item.revise?`${COLORS.accent}08`:COLORS.card, border:`1px solid ${item.revise?COLORS.accent+"50":item.done?COLORS.green+"30":COLORS.cardBorder}`, borderRadius:11, marginBottom:8, overflow:"hidden" }}>
+      <div key={item.id} style={{ background: item.done?`${COLORS.green}08`:item.revise?`${COLORS.accent}08`:COLORS.card, border:`1px solid ${item.revise?COLORS.accent+"50":item.done?COLORS.green+"30":COLORS.cardBorder}`, borderRadius:11, marginBottom:8, overflow:"hidden", transition: "all 0.1s" }}>
         <div style={{ display:"flex", alignItems:"center", gap:10, padding:"11px 14px" }}>
           <div onClick={() => toggleItem(item.id)} style={{ width:22, height:22, borderRadius:6, flexShrink:0, cursor:"pointer", background:item.done?COLORS.green:"transparent", border:`2px solid ${item.done?COLORS.green:COLORS.cardBorder}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:12, color:"#fff", transition:"all 0.15s" }}>{item.done?"✓":""}</div>
           <span style={{ flex:1, fontSize:14, color:item.done?COLORS.muted:COLORS.text, textDecoration:item.done?"line-through":"none" }}>{item.name}</span>
@@ -554,18 +570,18 @@ function SyllabusTab({ syllabus, setSyllabus, accent }) {
         <div key={node.id} style={{ background: COLORS.card, border:`1px solid ${COLORS.cardBorder}`, borderRadius:11, marginBottom:8, overflow:"hidden", display:"flex", alignItems:"center", padding:"11px 14px", gap:12 }}>
           <span style={{ flex:1, fontSize:14, color:COLORS.text }}>{ICONS[node.nodeType]} {node.name}</span>
           <div style={{ display:"flex", gap:4, alignItems:"center" }}>
-            <ActionBtn icon="↑" onClick={() => moveNodeDir(node.id, -1)} disabled={idx===0}/>
-            <ActionBtn icon="↓" onClick={() => moveNodeDir(node.id, 1)} disabled={idx===total-1}/>
-            <ActionBtn icon="✎" onClick={() => promptRename(node.name, nn => renameCurrentNode(node.id,nn))} />
-            <ActionBtn icon="🗑" onClick={() => deleteNodeById(node.id)} />
+            <ActionBtn icon="↑" onClick={() => moveNodeDir(node.id, -1)} disabled={idx===0} label="Move up"/>
+            <ActionBtn icon="↓" onClick={() => moveNodeDir(node.id, 1)} disabled={idx===total-1} label="Move down"/>
+            <ActionBtn icon="✎" onClick={() => promptRename(node.name, nn => renameCurrentNode(node.id,nn))} label="Rename"/>
+            <ActionBtn icon="🗑" onClick={() => deleteNodeById(node.id)} label="Delete"/>
           </div>
         </div>
       );
     }
     return (
-      <div key={node.id} style={rowCard(pct>0?pc+"40":null)}>
+      <div key={node.id} style={{ background: COLORS.card, border:`1px solid ${pct>0?pc+"40":COLORS.cardBorder}`, borderRadius:11, marginBottom:8, overflow:"hidden", transition: "all 0.1s", cursor: "pointer" }} onClick={() => setNav([...nav, node.id])}>
         <div style={{ display:"flex", alignItems:"center", padding:"14px", gap:12 }}>
-          <div onClick={() => setNav([...nav, node.id])} style={{ display:"flex",alignItems:"center",gap:12,flex:1,cursor:"pointer" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:12, flex:1 }}>
             <div style={{ position:"relative", flexShrink:0 }}><ProgressRing pct={pct} size={42} stroke={3} color={pc} /><div style={{ position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",fontSize:9,fontWeight:800,color:pc }}>{pct}%</div></div>
             <div style={{ flex:1, minWidth:0 }}>
               <span style={{ fontSize:14,fontWeight:600,color:COLORS.text,display:"block" }}>{ICONS[node.nodeType]} {node.name}</span>
@@ -573,15 +589,15 @@ function SyllabusTab({ syllabus, setSyllabus, accent }) {
             </div>
           </div>
           
-          <button onClick={() => setLinkModal({ id: node.id, links: node.links || [] })} style={{ background: hasLinks ? `${COLORS.blue}22` : "transparent", border: hasLinks ? `1px solid ${COLORS.blue}50` : "none", color: hasLinks ? COLORS.blue : COLORS.muted, borderRadius: 7, padding: "3px 7px", cursor: "pointer", fontSize: 14, lineHeight: 1 }}>
+          <button onClick={(e) => { e.stopPropagation(); setLinkModal({ id: node.id, links: node.links || [] }); }} style={{ background: hasLinks ? `${COLORS.blue}22` : "transparent", border: hasLinks ? `1px solid ${COLORS.blue}50` : "none", color: hasLinks ? COLORS.blue : COLORS.muted, borderRadius: 7, padding: "3px 7px", cursor: "pointer", fontSize: 14, lineHeight: 1 }}>
             🔗 {hasLinks && node.links.length > 1 ? node.links.length : ""}
           </button>
 
-          <button onClick={() => toggleRevise(node.id)} style={{ background:node.revise?`${COLORS.accent}22`:"transparent", border:node.revise?`1px solid ${COLORS.accent}50`:"none", borderRadius:7, padding:"3px 7px", cursor:"pointer", fontSize:14, lineHeight:1, color: node.revise?COLORS.accent:COLORS.muted }}>🔔</button>
-          <div onClick={() => setNav([...nav, node.id])} style={{ color:COLORS.muted,fontSize:16,cursor:"pointer" }}>›</div>
+          <button onClick={(e) => { e.stopPropagation(); toggleRevise(node.id); }} style={{ background:node.revise?`${COLORS.accent}22`:"transparent", border:node.revise?`1px solid ${COLORS.accent}50`:"none", borderRadius:7, padding:"3px 7px", cursor:"pointer", fontSize:14, lineHeight:1, color: node.revise?COLORS.accent:COLORS.muted }}>🔔</button>
+          <div style={{ color:COLORS.muted,fontSize:16 }}>›</div>
         </div>
         {node.revise && (
-          <div style={{ display:"flex", alignItems:"center", gap:10, padding:"0 14px 11px 46px" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:10, padding:"0 14px 11px 46px" }} onClick={(e) => e.stopPropagation()}>
             <span style={{ fontSize:11, color:COLORS.accent, fontWeight:600 }}>🎯 Complete by:</span>
             <input type="date" value={node.reviseDate||""} min={new Date().toISOString().slice(0,10)} onChange={e => setReviseDate(node.id, e.target.value)} style={{ background:`${COLORS.accent}12`, border:`1px solid ${COLORS.accent}40`, borderRadius:7, padding:"3px 8px", color:COLORS.text, fontSize:12, fontFamily:"inherit", outline:"none", colorScheme:"dark" }} />
           </div>
@@ -611,7 +627,7 @@ function SyllabusTab({ syllabus, setSyllabus, accent }) {
                 <div><div style={{ fontSize:15,fontWeight:700,color:COLORS.text }}>Overall Progress</div><div style={{ fontSize:12,color:COLORS.muted }}>{allLeaves.filter(i=>i.done).length} / {allLeaves.length} items done</div></div>
               </div>
             )}
-             <button onClick={() => {setEditMode(!editMode); setAdding(false);}} style={{ background: editMode ? COLORS.green : COLORS.cardBorder, color: editMode ? "#000" : COLORS.text, border:"none", borderRadius:10, padding:"7px 14px", fontWeight:700, fontSize:12, cursor:"pointer" }}>{editMode ? "✓ Done" : "✎ Edit List"}</button>
+             <button onClick={() => {setEditMode(!editMode); setAdding(false);}} style={{ background: editMode ? COLORS.green : COLORS.cardBorder, color: editMode ? "#000" : COLORS.text, border:"none", borderRadius:10, padding:"7px 14px", fontWeight:700, fontSize:12, cursor:"pointer", transition: "all 0.1s" }}>{editMode ? "✓ Done" : "✎ Edit List"}</button>
           </div>
 
           {childrenToRender.length === 0 && !adding && (
@@ -666,7 +682,8 @@ function RemindersTab({ items, setSyllabus, setCustomTasks, today }) {
 
   const handleAddCustom = () => {
     if(!cName.trim()) return;
-    setCustomTasks(prev => [...prev, { id: uid(), name: cName.trim(), reviseDate: cDate, links: cLink.trim() ? [cLink.trim()] : [], done: false, type: 'custom' }]);
+    const links = cLink.trim() ? [ensureValidUrl(cLink.trim())] : [];
+    setCustomTasks(prev => [...prev, { id: uid(), name: cName.trim(), reviseDate: cDate, links, done: false, type: 'custom' }]);
     setAddingCustom(false); setCName(""); setCLink("");
   };
 
@@ -709,7 +726,7 @@ function RemindersTab({ items, setSyllabus, setCustomTasks, today }) {
         {addingCustom ? (
           <div style={{ background: COLORS.card, border: `1px solid ${COLORS.accent}50`, borderRadius: 14, padding: 14, marginBottom: 16 }}>
             <input value={cName} onChange={e => setCName(e.target.value)} placeholder="Task or Class Name..." style={{ width:"100%", boxSizing:"border-box", background: `${COLORS.accent}12`, border: `1px solid ${COLORS.accent}40`, borderRadius: 8, padding: "8px 12px", color: COLORS.text, fontSize: 14, fontFamily: "inherit", outline: "none", marginBottom: 10 }} />
-            <input value={cLink} onChange={e => setCLink(e.target.value)} placeholder="Link URL (optional)" style={{ width:"100%", boxSizing:"border-box", background: `${COLORS.accent}12`, border: `1px solid ${COLORS.accent}40`, borderRadius: 8, padding: "8px 12px", color: COLORS.text, fontSize: 13, fontFamily: "inherit", outline: "none", marginBottom: 10 }} />
+            <input value={cLink} onChange={e => setCLink(e.target.value)} placeholder="Link URL (optional, e.g. https://...)" style={{ width:"100%", boxSizing:"border-box", background: `${COLORS.accent}12`, border: `1px solid ${COLORS.accent}40`, borderRadius: 8, padding: "8px 12px", color: COLORS.text, fontSize: 13, fontFamily: "inherit", outline: "none", marginBottom: 10 }} />
             <div style={{ display: "flex", gap: 10 }}>
               <input type="date" value={cDate} min={today} onChange={e => setCDate(e.target.value)} style={{ flex: 1, background: `${COLORS.accent}12`, border: `1px solid ${COLORS.accent}40`, borderRadius: 8, padding: "8px 12px", color: COLORS.text, fontSize: 13, fontFamily: "inherit", outline: "none", colorScheme: "dark" }} />
               <button onClick={handleAddCustom} style={{ background: COLORS.accent, color: "#000", border: "none", borderRadius: 8, padding: "8px 16px", fontWeight: 800, fontSize: 13, cursor: "pointer" }}>Save</button>
@@ -763,7 +780,7 @@ function RemindersTab({ items, setSyllabus, setCustomTasks, today }) {
   );
 }
 
-// ── MAIN APP COMPONENT ───────────────────────────────────────────────────
+// ── MAIN APP COMPONENT (ADDED CSS ANIMATIONS) ────────────────────────────
 export default function App() {
   const [activeTab, setActiveTab] = useState("home");
   const [showSettings, setShowSettings] = useState(false);
@@ -836,11 +853,19 @@ export default function App() {
       case "home":     return <HomeTab syllabus={syllabus} exams={exams} setExams={setExams} />;
       case "syllabus": return <SyllabusTab key={examMode} syllabus={syllabus} setSyllabus={setSyllabus} accent={accent} />;
       case "reminders": return <RemindersTab items={allReminders} setSyllabus={setSyllabus} setCustomTasks={setCustomTasks} today={today} />;
+      default: return null;
     }
   };
 
   return (
     <div style={{ maxWidth: 430, margin: "0 auto", background: COLORS.bg, height: "100dvh", position: "relative", fontFamily: "'Segoe UI', system-ui, sans-serif", color: COLORS.text, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      {/* CSS animations */}
+      <style>{`
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+        button { transition: all 0.1s ease; }
+        button:active { transform: scale(0.96); }
+      `}</style>
       
       {/* ── HEADER ── */}
       <div style={{ flexShrink: 0, background: `linear-gradient(to bottom, ${COLORS.card}, ${COLORS.bg})`, borderBottom: `1px solid ${COLORS.cardBorder}`, padding: "36px 20px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", boxShadow: "0 4px 20px rgba(0,0,0,0.15)", zIndex: 10 }}>
