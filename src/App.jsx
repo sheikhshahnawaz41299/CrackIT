@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { App as CapApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
-// REMOVED unused import: Share
+import { Downloader } from '@capgo/capacitor-downloader';  // ADDED for native downloads
 
 // ── GLOBAL NATIVE BACK BUTTON STACK ──────────────────────────────────────
 const backButtonListeners = [];
@@ -19,7 +19,6 @@ const COLORS = {
   green: "#2ecc71", greenSoft: "#2ecc7122",
   red: "#e74c3c", cyan: "#00b4d8",
   text: "#e8eaf0", muted: "#7a8099", highlight: "#ffffff",
-  // NEW: hover/active states
   overlay: "rgba(0,0,0,0.6)",
 };
 
@@ -50,7 +49,6 @@ function daysLeft(dateStr) {
   return Math.ceil((new Date(dateStr) - today) / 86400000);
 }
 
-// FIXED: auto-add https to URLs if missing
 function ensureValidUrl(url) {
   if (!url) return '';
   const trimmed = url.trim();
@@ -233,17 +231,25 @@ function SettingsModal({ onClose, dataStr, onImport }) {
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2000); };
 
-  const handleFileExport = () => {
+  // UPDATED: Native download with @capgo/capacitor-downloader
+  const handleFileExport = async () => {
+    const fileName = "crackit_backup.json";
     const blob = new Blob([dataStr], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "crackit_backup.json";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    showToast("✅ Backup saved");
+    const fileUrl = URL.createObjectURL(blob);
+    
+    try {
+      await Downloader.download({
+        url: fileUrl,
+        fileName: fileName,
+        timeout: 60000,
+      });
+      showToast("✅ Backup download started! Check notification bar.");
+    } catch (error) {
+      console.error("Download error:", error);
+      alert("❌ Failed to start download. Please use Copy/Paste or try again.");
+    } finally {
+      URL.revokeObjectURL(fileUrl);
+    }
   };
 
   const handleFileImport = (e) => {
@@ -315,7 +321,6 @@ function LinkModal({ currentLinks = [], onSave, onClose, accent }) {
   const [newLink, setNewLink] = useState("");
   const [error, setError] = useState("");
 
-  // FIXED: validate with auto https
   const isValidUrl = (url) => {
     if (!url.trim()) return false;
     try { new URL(ensureValidUrl(url)); return true; } catch { return false; }
@@ -497,7 +502,6 @@ function SyllabusTab({ syllabus, setSyllabus, accent }) {
   };
 
   const toggleItem = (id) => setSyllabus(prev => updateNode(prev, id, n => ({...n, done: !n.done})));
-  // FIXED: reviseDate = tomorrow instead of 2 days later
   const toggleRevise = (id) => setSyllabus(prev => updateNode(prev, id, n => ({...n, revise: !n.revise, reviseDate: !n.revise ? new Date(Date.now() + 86400000).toISOString().slice(0,10) : null})));
   const setReviseDate = (id, date) => setSyllabus(prev => updateNode(prev, id, n => ({...n, reviseDate: date})));
   const setLinks = (id, newLinks) => setSyllabus(prev => updateNode(prev, id, n => ({...n, links: newLinks})));
@@ -519,7 +523,6 @@ function SyllabusTab({ syllabus, setSyllabus, accent }) {
   }
 
   const progColor = p => p >= 70 ? COLORS.green : p >= 35 ? COLORS.accent : COLORS.blue;
-  const rowCard = (borderColor) => ({ background: COLORS.card, border: `1px solid ${borderColor || COLORS.cardBorder}`, borderRadius: 13, marginBottom: 8, overflow: "hidden", transition: "transform 0.1s, box-shadow 0.2s", hover: { transform: "translateY(-1px)", boxShadow: "0 4px 12px rgba(0,0,0,0.2)" } });
   const btnStyle = { flex: 1, background:"transparent", border:`1.5px dashed ${COLORS.cardBorder}`, color:COLORS.muted, borderRadius:10, padding:"10px 0", fontSize:13, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:6, fontWeight:600, transition: "background 0.1s", hover: { background: `${COLORS.accent}10` } };
 
   const renderItemRow = (item, idx, total) => {
@@ -859,7 +862,6 @@ export default function App() {
 
   return (
     <div style={{ maxWidth: 430, margin: "0 auto", background: COLORS.bg, height: "100dvh", position: "relative", fontFamily: "'Segoe UI', system-ui, sans-serif", color: COLORS.text, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-      {/* CSS animations */}
       <style>{`
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
@@ -867,7 +869,6 @@ export default function App() {
         button:active { transform: scale(0.96); }
       `}</style>
       
-      {/* ── HEADER ── */}
       <div style={{ flexShrink: 0, background: `linear-gradient(to bottom, ${COLORS.card}, ${COLORS.bg})`, borderBottom: `1px solid ${COLORS.cardBorder}`, padding: "36px 20px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", boxShadow: "0 4px 20px rgba(0,0,0,0.15)", zIndex: 10 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <span style={{ fontSize: 24, fontWeight: 900, color: accent, letterSpacing: 1 }}>CRACK</span>
@@ -884,12 +885,10 @@ export default function App() {
         </div>
       </div>
 
-      {/* ── CONTENT ── */}
       <div style={{ flex: 1, overflowY: "auto", position: "relative" }}>
         {renderTab()}
       </div>
 
-      {/* ── FOOTER NAV ── */}
       <div style={{ flexShrink: 0, background: COLORS.card, borderTop: `1px solid ${COLORS.cardBorder}`, display: "flex", padding: "6px 0 16px", zIndex: 10 }}>
         {TABS.map(tab => (
           <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3, background: "none", border: "none", cursor: "pointer", padding: "6px 0", position: "relative" }}>
