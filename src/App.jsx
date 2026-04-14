@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { App as CapApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
-import { Downloader } from '@capgo/capacitor-downloader';  // ADDED for native downloads
+import { Share } from '@capacitor/share';  // ✅ Native share for saving files
 
 // ── GLOBAL NATIVE BACK BUTTON STACK ──────────────────────────────────────
 const backButtonListeners = [];
@@ -11,7 +11,7 @@ const removeBackListener = (fn) => {
   if (idx !== -1) backButtonListeners.splice(idx, 1);
 };
 
-// ── CONSTANTS & COLORS (ENHANCED) ───────────────────────────────────────
+// ── CONSTANTS & COLORS ───────────────────────────────────────────────────
 const COLORS = {
   bg: "#0f1117", card: "#181c27", cardBorder: "#252a3a",
   accent: "#f5a623", accentSoft: "#f5a62322",
@@ -138,7 +138,7 @@ const getReviseItems = (tree, path = []) => {
   return items;
 };
 
-// ── UI COMPONENTS (ENHANCED WITH HOVER & TRANSITIONS) ────────────────────
+// ── UI COMPONENTS ────────────────────────────────────────────────────────
 function ProgressRing({ pct, size = 48, stroke = 4, color = COLORS.accent }) {
   const r = (size - stroke) / 2;
   const circ = 2 * Math.PI * r;
@@ -187,7 +187,7 @@ function AddRow({ placeholder, onAdd, onCancel }) {
         onKeyDown={e => { if (e.key === "Enter") submit(); if (e.key === "Escape") onCancel(); }}
         style={{ flex: 1, background: `${COLORS.accent}12`, border: `1.5px solid ${COLORS.accent}60`, borderRadius: 8, padding: "7px 10px", color: COLORS.text, fontSize: 13, fontFamily: "inherit", outline: "none", transition: "border 0.2s" }}
       />
-      <button onClick={submit} style={{ background: COLORS.accent, color: "#000", border: "none", borderRadius: 8, padding: "6px 12px", fontWeight: 700, fontSize: 12, cursor: "pointer", transition: "transform 0.1s", active: { transform: "scale(0.96)" } }}>Add</button>
+      <button onClick={submit} style={{ background: COLORS.accent, color: "#000", border: "none", borderRadius: 8, padding: "6px 12px", fontWeight: 700, fontSize: 12, cursor: "pointer", transition: "transform 0.1s" }}>Add</button>
       <button onClick={onCancel} style={{ background: "transparent", color: COLORS.muted, border: "none", fontSize: 20, cursor: "pointer", lineHeight: 1 }}>×</button>
     </div>
   );
@@ -215,14 +215,14 @@ function ActionBtn({ icon, onClick, disabled, label }) {
       onClick={(e) => { e.stopPropagation(); onClick(); }}
       disabled={disabled}
       aria-label={label}
-      style={{ background: "transparent", border: "none", color: disabled ? COLORS.cardBorder : COLORS.muted, fontSize: 18, cursor: disabled ? "default" : "pointer", padding: "6px 8px", lineHeight: 1, transition: "color 0.1s", hover: disabled ? {} : { color: COLORS.text } }}
+      style={{ background: "transparent", border: "none", color: disabled ? COLORS.cardBorder : COLORS.muted, fontSize: 18, cursor: disabled ? "default" : "pointer", padding: "6px 8px", lineHeight: 1, transition: "color 0.1s" }}
     >
       {icon}
     </button>
   );
 }
 
-// ── MODALS (IMPROVED ANIMATION & FEEDBACK) ───────────────────────────────
+// ── MODALS ───────────────────────────────────────────────────────────────
 function SettingsModal({ onClose, dataStr, onImport }) {
   const [manualPaste, setManualPaste] = useState(false);
   const [pasteText, setPasteText] = useState("");
@@ -231,25 +231,30 @@ function SettingsModal({ onClose, dataStr, onImport }) {
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2000); };
 
-  // UPDATED: Native download with @capgo/capacitor-downloader
+  // UPDATED: Use native share to save the backup file
   const handleFileExport = async () => {
     const fileName = "crackit_backup.json";
     const blob = new Blob([dataStr], { type: "application/json" });
-    const fileUrl = URL.createObjectURL(blob);
-    
-    try {
-      await Downloader.download({
-        url: fileUrl,
-        fileName: fileName,
-        timeout: 60000,
-      });
-      showToast("✅ Backup download started! Check notification bar.");
-    } catch (error) {
-      console.error("Download error:", error);
-      alert("❌ Failed to start download. Please use Copy/Paste or try again.");
-    } finally {
-      URL.revokeObjectURL(fileUrl);
-    }
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      const base64Data = reader.result.split(',')[1];
+      try {
+        await Share.share({
+          title: 'Save CrackIT Backup',
+          text: 'Save your CrackIT backup file to Downloads, Drive, or any app.',
+          files: [{
+            data: base64Data,
+            mimeType: "application/json",
+            fileName: fileName
+          }]
+        });
+        showToast("✅ Share dialog opened – choose where to save.");
+      } catch (error) {
+        console.error("Share error:", error);
+        alert("❌ Failed to open share. Use Copy/Paste instead.");
+      }
+    };
+    reader.readAsDataURL(blob);
   };
 
   const handleFileImport = (e) => {
@@ -375,7 +380,7 @@ function LinkModal({ currentLinks = [], onSave, onClose, accent }) {
   );
 }
 
-// ── TABS (MINOR STYLE TWEAKS) ───────────────────────────────────────────
+// ── TABS ─────────────────────────────────────────────────────────────────
 function ExamCountdowns({ exams, setExams }) {
   const [editingId, setEditingId] = useState(null);
   const [addingNew, setAddingNew] = useState(false);
@@ -523,7 +528,7 @@ function SyllabusTab({ syllabus, setSyllabus, accent }) {
   }
 
   const progColor = p => p >= 70 ? COLORS.green : p >= 35 ? COLORS.accent : COLORS.blue;
-  const btnStyle = { flex: 1, background:"transparent", border:`1.5px dashed ${COLORS.cardBorder}`, color:COLORS.muted, borderRadius:10, padding:"10px 0", fontSize:13, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:6, fontWeight:600, transition: "background 0.1s", hover: { background: `${COLORS.accent}10` } };
+  const btnStyle = { flex: 1, background:"transparent", border:`1.5px dashed ${COLORS.cardBorder}`, color:COLORS.muted, borderRadius:10, padding:"10px 0", fontSize:13, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:6, fontWeight:600, transition: "background 0.1s" };
 
   const renderItemRow = (item, idx, total) => {
     const hasLinks = item.links && item.links.length > 0;
@@ -783,7 +788,7 @@ function RemindersTab({ items, setSyllabus, setCustomTasks, today }) {
   );
 }
 
-// ── MAIN APP COMPONENT (ADDED CSS ANIMATIONS) ────────────────────────────
+// ── MAIN APP COMPONENT ───────────────────────────────────────────────────
 export default function App() {
   const [activeTab, setActiveTab] = useState("home");
   const [showSettings, setShowSettings] = useState(false);
