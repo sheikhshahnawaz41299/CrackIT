@@ -1,0 +1,1 @@
+*,*:before,*:after{box-sizing:border-box;margin:0;padding:0}html,body,#root{height:100%;width:100%}body{background:#0f1117;color:#e8eaf0;font-family:Segoe UI,system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;overscroll-behavior:none}::-webkit-scrollbar{display:none}*{scrollbar-width:none;-ms-overflow-style:none}
