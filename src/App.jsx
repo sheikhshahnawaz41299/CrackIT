@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { App as CapApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
-import { Share } from '@capacitor/share';  // ✅ Native share for saving files
+import { Filesystem, Directory } from '@capacitor/filesystem'; // ✅ direct file save
 
 // ── GLOBAL NATIVE BACK BUTTON STACK ──────────────────────────────────────
 const backButtonListeners = [];
@@ -231,30 +231,25 @@ function SettingsModal({ onClose, dataStr, onImport }) {
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2000); };
 
-  // UPDATED: Use native share to save the backup file
+  // ✅ NEW: Direct file save using Filesystem
   const handleFileExport = async () => {
     const fileName = "crackit_backup.json";
-    const blob = new Blob([dataStr], { type: "application/json" });
-    const reader = new FileReader();
-    reader.onloadend = async () => {
-      const base64Data = reader.result.split(',')[1];
-      try {
-        await Share.share({
-          title: 'Save CrackIT Backup',
-          text: 'Save your CrackIT backup file to Downloads, Drive, or any app.',
-          files: [{
-            data: base64Data,
-            mimeType: "application/json",
-            fileName: fileName
-          }]
-        });
-        showToast("✅ Share dialog opened – choose where to save.");
-      } catch (error) {
-        console.error("Share error:", error);
-        alert("❌ Failed to open share. Use Copy/Paste instead.");
-      }
-    };
-    reader.readAsDataURL(blob);
+    try {
+      await Filesystem.writeFile({
+        path: fileName,
+        data: dataStr,
+        directory: Directory.Documents,
+        recursive: true,
+      });
+      const result = await Filesystem.getUri({
+        directory: Directory.Documents,
+        path: fileName,
+      });
+      showToast(`✅ Backup saved: ${result.uri}`);
+    } catch (error) {
+      console.error("File write error:", error);
+      alert("❌ Failed to save backup. Please use Copy button as fallback.");
+    }
   };
 
   const handleFileImport = (e) => {
