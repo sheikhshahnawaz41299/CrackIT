@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">CrackIT</string>
+    <string name="title_activity_main">CrackIT</string>
+    <string name="package_name">com.crackit.app</string>
+    <string name="custom_url_scheme">com.crackit.app</string>
+</resources>
